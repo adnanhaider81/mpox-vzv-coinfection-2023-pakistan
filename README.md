@@ -20,8 +20,6 @@ Components under one roof:
   - Trimmomatic for adapter and quality trimming with sliding window 4:30 and minimum length 50, leading and trailing quality 3.
 - Duplicate handling
   - Picard MarkDuplicates to flag PCR duplicates on filtered reads.
-- De novo assembly and contig QC
-  - SPAdes assembly with default parameters.
   - QC table with N50, GC percent, and percent N for contigs. Length cutoff default 300 nt.
 - Closest match search and reference selection
   - BLASTN against NCBI nt using remote mode to avoid a local database, or point to a local nt database if available.
@@ -41,13 +39,49 @@ Components under one roof:
 The defaults align with the manuscript methods, including iSeq 2x150, Trimmomatic parameters, duplicate handling, SPAdes, and phylogenetics with MAFFT and IQ-TREE. Where the paper used Geneious for consensus, this workflow uses bcftools with a depth mask that emulates minimum coverage greater than 10.
 
 
+
 ### Kraken2 and Kaiju databases
 This repo does not ship databases. You must download and point the config at your local copies.
 
-- Kraken2
-  - Build or download a database such as standard or PlusPF. See Kraken2 docs. Set `kraken2.db` in `config/config.yaml` to the database path.
-- Kaiju
-  - Download a kaiju database and the taxonomy files `nodes.dmp` and `names.dmp`. Set `kaiju.db_fmi`, `kaiju.nodes`, and `kaiju.names` in `config/config.yaml`.
+Authoritative sources
+- Kraken2 homepage and docs: https://ccb.jhu.edu/software/kraken2/  
+- Kraken2 GitHub: https://github.com/DerrickWood/kraken2  
+- Prebuilt Kraken2 plus Bracken indices by the Langmead Lab (RefSeq-based): https://benlangmead.github.io/aws-indexes/k2  
+- Kaiju homepage: https://kaiju.binf.ku.dk/  
+- Kaiju prebuilt indexes: https://bioinformatics-centre.github.io/kaiju/downloads.html  
+- NCBI Taxonomy dump (names.dmp and nodes.dmp): https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/
+
+Quick start examples
+```bash
+# Kraken2: download a RefSeq-based bundle from the Langmead AWS indexes page
+# Pick a tarball that matches your RAM, then untar and set kraken2.db to the extracted folder
+mkdir -p /data/db/kraken2 && cd /data/db/kraken2
+# example only - visit the page above to choose the exact URL
+curl -O https://benlangmead.github.io/aws-indexes/k2/2025-07-xx/k2_standard_202507.tar.gz
+tar -xzf k2_standard_202507.tar.gz
+
+# Kaiju: download a prebuilt index that already includes names.dmp and nodes.dmp
+mkdir -p /data/db/kaiju && cd /data/db/kaiju
+# example only - visit the downloads page to choose the exact file
+curl -O https://kaiju.binf.ku.dk/database/kaiju_db_nr_euk_2023-05-16.tgz
+tar -xzf kaiju_db_nr_euk_2023-05-16.tgz
+
+# Or build Kaiju DB locally using kaiju-makedb
+kaiju-makedb -s refseq -t /data/db/kaiju/taxdump  # downloads taxonomy and builds the .fmi index
+```
+
+Configure paths in `config/config.yaml`:
+```yaml
+kraken2:
+  enable: true
+  db: /data/db/kraken2/k2_standard_202507   # directory that contains hash.k2d and opts.k2d
+
+kaiju:
+  enable: true
+  db_fmi: /data/db/kaiju/kaiju_db_nr_euk.fmi
+  nodes: /data/db/kaiju/nodes.dmp
+  names: /data/db/kaiju/names.dmp
+```
 
 ## Requirements
 - Python 3.11 or newer
