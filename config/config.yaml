@@ -22,3 +22,14 @@ params:
   iqtree_model: GTR+G+I
   bootstrap: 1000
   blast_remote: true
+
+
+kraken2:
+  enable: true
+  db: /path/to/kraken2-db
+
+kaiju:
+  enable: true
+  db_fmi: /path/to/kaiju_db.fmi
+  nodes: /path/to/nodes.dmp
+  names: /path/to/names.dmp

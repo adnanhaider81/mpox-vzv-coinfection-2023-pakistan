@@ -6,6 +6,13 @@ Reproducible code and Snakemake workflow that mirror the study design and analys
 One end to end pipeline organized under Snakemake. It supports both metagenomic assembly driven discovery and reference based analysis, and it produces separate consensus genomes, phylogenies, and mutation reports for MPXV and VZV.
 
 Components under one roof:
+- Pathogen discovery
+  - De novo SPAdes contigs from trimmed reads
+  - Kraken2 classification of reads and contigs using a local database that you supply
+  - Kaiju protein level classification of contigs using a local kaiju database
+  - Cross check top results with NCBI BLAST either in remote mode against nt or against your local nt
+  - Write a combined taxonomy summary per sample and flag likely targets such as mpox or VZV
+- Targeted virus analysis
 - Inputs
   - Paired end FASTQ from metagenomic DNA libraries sequenced on Illumina iSeq 2x150.
 - Quality control and trimming
@@ -32,6 +39,15 @@ Components under one roof:
   - Example plotting script and CI smoke test are included.
 
 The defaults align with the manuscript methods, including iSeq 2x150, Trimmomatic parameters, duplicate handling, SPAdes, and phylogenetics with MAFFT and IQ-TREE. Where the paper used Geneious for consensus, this workflow uses bcftools with a depth mask that emulates minimum coverage greater than 10.
+
+
+### Kraken2 and Kaiju databases
+This repo does not ship databases. You must download and point the config at your local copies.
+
+- Kraken2
+  - Build or download a database such as standard or PlusPF. See Kraken2 docs. Set `kraken2.db` in `config/config.yaml` to the database path.
+- Kaiju
+  - Download a kaiju database and the taxonomy files `nodes.dmp` and `names.dmp`. Set `kaiju.db_fmi`, `kaiju.nodes`, and `kaiju.names` in `config/config.yaml`.
 
 ## Requirements
 - Python 3.11 or newer
@@ -102,6 +118,13 @@ params:
 - `results/mutations/vzv_snp_summary.tsv` - per sample SNP summary relative to VZV reference
 - Optional: SPAdes contig QC tables and summary under `results/spades/`
 
+
+Additional discovery outputs
+- `results/kraken2/<sample>.reads.report.txt` and `.contigs.report.txt` reports
+- `results/kaiju/<sample>.kaiju.report.tsv` species table
+- `results/taxonomy/<sample>_summary.tsv` merged summary from Kraken2 and Kaiju
+- `results/taxonomy/<sample>_selected_targets.yaml` suggested targets for downstream analysis
+
 ## SPAdes contigs: QC and identification
 1. Review `results/spades/<sample>/contigs.qc.tsv` and `contigs.summary.txt`. Default minimum contig length is 300 nt. N50, GC percent, and N percent are reported.
 2. Identify likely MPXV and VZV contigs with BLASTN. By default the workflow runs `blastn -remote -db nt` for the top 5 hits per contig and writes `results/blast/contig_top_hits.tsv`. Set `params.blast_remote: false` and provide a local `nt` path if you maintain a local database.
@@ -135,6 +158,9 @@ params:
 - Kans J. NCBI E-utilities Help.
 - Köster J, Rahmann S. 2012. Snakemake. Bioinformatics 28:2520-2522.
 
+
+- Wood DE, Lu J, Langmead B. 2019. Improved metagenomic analysis with Kraken 2. Genome Biology 20:257.
+- Menzel P, Ng KL, Krogh A. 2016. Fast and sensitive taxonomic classification for metagenomics with Kaiju. Nature Communications 7:11257.
 ## Contributing
 See `CONTRIBUTING.md`. Open an issue for questions. Do not commit restricted data.
 

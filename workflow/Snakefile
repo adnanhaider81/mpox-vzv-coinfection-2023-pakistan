@@ -262,3 +262,64 @@ rule nextclade_mpox:
         "results/mutations/mpox_nextclade.csv"
     shell:
         "if command -v nextclade >/dev/null 2>&1; then mkdir -p results/mutations && nextclade run --input-dataset 'https://datasets.nextstrain.org/hmpxv/latest' results/consensus/mpox/*.fa --output-csv {output}; else echo 'nextclade not found' > {output}; fi"
+
+
+# Taxonomic classification for pathogen discovery
+KRAKEN_EN = cfg.get("kraken2", {}).get("enable", True)
+KRAKEN_DB = cfg.get("kraken2", {}).get("db", "/path/to/kraken2-db")
+KAIJU_EN = cfg.get("kaiju", {}).get("enable", True)
+KAIJU_FMI = cfg.get("kaiju", {}).get("db_fmi", "/path/to/kaiju_db.fmi")
+KAIJU_NODES = cfg.get("kaiju", {}).get("nodes", "/path/to/nodes.dmp")
+KAIJU_NAMES = cfg.get("kaiju", {}).get("names", "/path/to/names.dmp")
+
+rule kraken2_reads:
+    input:
+        r1="work/{s}.R1.trim.fastq.gz",
+        r2="work/{s}.R2.trim.fastq.gz"
+    output:
+        rep="results/kraken2/{s}.reads.report.txt",
+        out="results/kraken2/{s}.reads.kraken.tsv"
+    threads: THREADS
+    shell:
+        "if {int(KRAKEN_EN)}; then mkdir -p results/kraken2 && "
+        "kraken2 --db {KRAKEN_DB} --threads {threads} --paired {input.r1} {input.r2} "
+        "--report {output.rep} --output {output.out}; "
+        "else mkdir -p results/kraken2 && echo 'disabled' > {output.rep} && echo '' > {output.out}; fi"
+
+rule kraken2_contigs:
+    input:
+        contigs="results/spades/{s}/contigs.fasta"
+    output:
+        rep="results/kraken2/{s}.contigs.report.txt",
+        out="results/kraken2/{s}.contigs.kraken.tsv"
+    threads: THREADS
+    shell:
+        "if {int(KRAKEN_EN)}; then mkdir -p results/kraken2 && "
+        "kraken2 --db {KRAKEN_DB} --threads {threads} {input.contigs} "
+        "--report {output.rep} --output {output.out}; "
+        "else mkdir -p results/kraken2 && echo 'disabled' > {output.rep} && echo '' > {output.out}; fi"
+
+rule kaiju_contigs:
+    input:
+        contigs="results/spades/{s}/contigs.fasta"
+    output:
+        out="results/kaiju/{s}.kaiju.out",
+        rep="results/kaiju/{s}.kaiju.report.tsv"
+    threads: THREADS
+    shell:
+        "if {int(KAIJU_EN)}; then mkdir -p results/kaiju && "
+        "kaiju -t {KAIJU_NODES} -f {KAIJU_FMI} -i {input.contigs} -z {threads} -a greedy -e 5 -E 0.0001 -s 65 -o {output.out} && "
+        "kaiju2table -t {KAIJU_NODES} -n {KAIJU_NAMES} -r species -o {output.rep} {output.out}; "
+        "else mkdir -p results/kaiju && echo 'disabled' > {output.out} && echo '' > {output.rep}; fi"
+
+rule taxonomy_summary:
+    input:
+        k2r="results/kraken2/{s}.reads.report.txt",
+        k2c="results/kraken2/{s}.contigs.report.txt",
+        kj="results/kaiju/{s}.kaiju.report.tsv"
+    output:
+        tsv="results/taxonomy/{s}_summary.tsv",
+        targ="results/taxonomy/{s}_selected_targets.yaml"
+    shell:
+        "mkdir -p results/taxonomy && "
+        "python analysis/scripts/taxonomy_summary.py --k2_reads {input.k2r} --k2_contigs {input.k2c} --kaiju {input.kj} --out_tsv {output.tsv} --out_targets {output.targ}"
