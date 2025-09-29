@@ -1,0 +1,33 @@
+cff-version: 1.2.0
+message: Please cite this code and the associated paper.
+title: Mpox and VZV coinfection Pakistan 2023 - analysis code
+authors:
+  - family-names: Haider
+    given-names: Syed Adnan
+version: 1.0.0
+date-released: 2025-09-29
+preferred-citation:
+  type: article
+  title: Genomic characterization of the first mpox and varicella-zoster co-infection in Pakistan (2023) through next-generation sequencing
+  authors:
+    - family-names: Umair
+      given-names: Massab
+    - family-names: Jamal
+      given-names: Zunera
+    - family-names: Haider
+      given-names: Syed A.
+    - family-names: Hakim
+      given-names: Rabia
+    - family-names: Ammar
+      given-names: Muhammad
+    - family-names: Ali
+      given-names: Qasim
+    - family-names: Akhtar
+      given-names: Nasim
+    - family-names: Ikram
+      given-names: Aamer
+    - family-names: Salman
+      given-names: Muhammad
+  year: 2023
+  journal: Journal of Medical Virology
+  doi: 10.1002/jmv.29037

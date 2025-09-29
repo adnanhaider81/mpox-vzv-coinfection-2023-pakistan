@@ -1,0 +1,264 @@
+# Snakemake pipeline for Mpox + VZV coinfection analysis
+
+import yaml, os
+cfg = yaml.safe_load(open("config/config.yaml"))
+
+SAMPLES = [x.get("sample","MPXV_2023_02") for x in cfg.get("pairs", [{"sample":"MPXV_2023_02","r1":"data-private/MPXV_2023_02_R1.fastq.gz","r2":"data-private/MPXV_2023_02_R2.fastq.gz"}])]
+META = {x.get("sample","MPXV_2023_02"): x for x in cfg.get("pairs", [])}
+if not META:
+    META = {"MPXV_2023_02": {"r1":"data-private/MPXV_2023_02_R1.fastq.gz","r2":"data-private/MPXV_2023_02_R2.fastq.gz"}}
+
+THREADS = cfg["params"]["threads"]
+MIN_CONTIG = cfg["params"]["min_len_contig"]
+MIN_DP = cfg["params"]["min_depth_consensus"]
+MODEL = cfg["params"]["iqtree_model"]
+BOOT = cfg["params"]["bootstrap"]
+USE_MF = cfg["params"].get("use_model_finder", False)
+BLAST_REMOTE = cfg["params"].get("blast_remote", True)
+
+MP_REF = cfg["references"]["mpox"]
+VZV_REF = cfg["references"]["vzv"]
+
+rule all:
+    input:
+        expand("results/consensus/mpox/{s}.fa", s=SAMPLES),
+        expand("results/consensus/vzv/{s}.fa", s=SAMPLES),
+        "results/iqtree/mpox.treefile",
+        "results/iqtree/vzv.treefile",
+        "results/blast/contig_top_hits.tsv"
+
+rule fastqc:
+    input:
+        r1=lambda w: META[w.s]["r1"],
+        r2=lambda w: META[w.s]["r2"]
+    output:
+        html1="work/{s}.R1.fastqc.html",
+        html2="work/{s}.R2.fastqc.html"
+    threads: 1
+    shell:
+        "fastqc -o work {input.r1} {input.r2}"
+
+rule trim:
+    input:
+        r1=lambda w: META[w.s]["r1"],
+        r2=lambda w: META[w.s]["r2"]
+    output:
+        r1="work/{s}.R1.trim.fastq.gz",
+        r2="work/{s}.R2.trim.fastq.gz"
+    params:
+        adapters="env/TruSeq3-PE.fa"
+    threads: THREADS
+    shell:
+        "trimmomatic PE -threads {threads} {input.r1} {input.r2} "
+        "{output.r1} /dev/null {output.r2} /dev/null "
+        "ILLUMINACLIP:{params.adapters}:2:30:10 LEADING:3 TRAILING:3 SLIDINGWINDOW:4:30 MINLEN:50"
+
+rule markdup:
+    input:
+        r1="work/{s}.R1.trim.fastq.gz",
+        r2="work/{s}.R2.trim.fastq.gz"
+    output:
+        r1="work/{s}.R1.trim.md.fastq.gz",
+        r2="work/{s}.R2.trim.md.fastq.gz"
+    shell:
+        # For simplicity we pass trimmed reads forward; MarkDuplicates acts on BAM. We mark dups after mapping.
+        "ln -sf {input.r1} {output.r1} && ln -sf {input.r2} {output.r2}"
+
+rule spades:
+    input:
+        r1="work/{s}.R1.trim.fastq.gz",
+        r2="work/{s}.R2.trim.fastq.gz"
+    output:
+        contigs="results/spades/{s}/contigs.fasta"
+    threads: THREADS
+    shell:
+        "mkdir -p results/spades/{wildcards.s} && "
+        "spades.py -1 {input.r1} -2 {input.r2} -t {threads} -o results/spades/{wildcards.s} > logs/{wildcards.s}.spades.log 2>&1 && "
+        "test -f results/spades/{wildcards.s}/contigs.fasta || touch {output.contigs}"
+
+rule contig_qc:
+    input:
+        "results/spades/{s}/contigs.fasta"
+    output:
+        tsv="results/spades/{s}/contigs.qc.tsv"
+    params:
+        minlen=MIN_CONTIG
+    shell:
+        "python analysis/scripts/contig_qc.py --in {input} --min_len {params.minlen} --out_tsv {output.tsv}"
+
+rule blast_top_hits:
+    input:
+        contigs="results/spades/{s}/contigs.fasta"
+    output:
+        tsv="results/blast/contig_top_hits.tsv"
+    params:
+        remote="--remote" if BLAST_REMOTE else ""
+    shell:
+        "mkdir -p results/blast && python analysis/scripts/blast_top_hits.py --contigs {input.contigs} --out_tsv {output.tsv} {params.remote}"
+
+# Fetch references by accession
+rule fetch_refs:
+    output:
+        mpox="refs/MPXV.fasta",
+        vzv="refs/VZV.fasta"
+    run:
+        open("config/ref_acc.txt","w").write("\\n".join([MP_REF, VZV_REF]))
+        shell("python analysis/scripts/fetch_genbank.py --acc config/ref_acc.txt --out_fasta refs/all_refs.fasta && "
+              "seqkit grep -n -p {mp} refs/all_refs.fasta > {mpf} && "
+              "seqkit grep -n -p {vz} refs/all_refs.fasta > {vf}".format(
+                  mp=MP_REF, vz=VZV_REF, mpf=output.mpox, vf=output.vzv
+              ))
+
+# Map to MPXV
+rule map_bwa_mpox:
+    input:
+        r1="work/{s}.R1.trim.fastq.gz",
+        r2="work/{s}.R2.trim.fastq.gz",
+        ref="refs/MPXV.fasta"
+    output:
+        bam="work/{s}.mpox.sorted.bam"
+    threads: THREADS
+    shell:
+        "bwa index {input.ref} && "
+        "bwa mem -t {threads} {input.ref} {input.r1} {input.r2} | samtools sort -@ {threads} -o {output.bam} && "
+        "picard MarkDuplicates I={output.bam} O=work/{wildcards.s}.mpox.dedup.bam M=work/{wildcards.s}.mpox.dupmetrics.txt VALIDATION_STRINGENCY=SILENT REMOVE_SEQUENCING_DUPLICATES=false && "
+        "samtools index work/{wildcards.s}.mpox.dedup.bam"
+
+rule depth_mpox:
+    input:
+        bam="work/{s}.mpox.dedup.bam"
+    output:
+        depth="results/coverage/{s}.mpox.depth.txt"
+    shell:
+        "mkdir -p results/coverage && samtools depth -a {input.bam} > {output.depth}"
+
+rule consensus_mpox:
+    input:
+        bam="work/{s}.mpox.dedup.bam",
+        ref="refs/MPXV.fasta",
+        depth="results/coverage/{s}.mpox.depth.txt"
+    output:
+        vcf="work/{s}.mpox.vcf.gz",
+        mask="work/{s}.mpox.mask.bed",
+        cons="results/consensus/mpox/{s}.fa"
+    params:
+        min_dp=MIN_DP
+    threads: THREADS
+    shell:
+        "awk -v OFS='\\t' -v MIN={params.min_dp} '{{ if ($3<MIN) print $1, $2-1, $2 }}' {input.depth} > {output.mask} && "
+        "bcftools mpileup -Ou -f {input.ref} {input.bam} | bcftools call -mv -Oz -o {output.vcf} && bcftools index {output.vcf} && "
+        "mkdir -p results/consensus/mpox && bcftools consensus -f {input.ref} -m {output.mask} {output.vcf} > {output.cons}"
+
+# Map to VZV
+rule map_bwa_vzv:
+    input:
+        r1="work/{s}.R1.trim.fastq.gz",
+        r2="work/{s}.R2.trim.fastq.gz",
+        ref="refs/VZV.fasta"
+    output:
+        bam="work/{s}.vzv.sorted.bam"
+    threads: THREADS
+    shell:
+        "bwa index {input.ref} && "
+        "bwa mem -t {threads} {input.ref} {input.r1} {input.r2} | samtools sort -@ {threads} -o {output.bam} && "
+        "picard MarkDuplicates I={output.bam} O=work/{wildcards.s}.vzv.dedup.bam M=work/{wildcards.s}.vzv.dupmetrics.txt VALIDATION_STRINGENCY=SILENT REMOVE_SEQUENCING_DUPLICATES=false && "
+        "samtools index work/{wildcards.s}.vzv.dedup.bam"
+
+rule depth_vzv:
+    input:
+        bam="work/{s}.vzv.dedup.bam"
+    output:
+        depth="results/coverage/{s}.vzv.depth.txt"
+    shell:
+        "mkdir -p results/coverage && samtools depth -a {input.bam} > {output.depth}"
+
+rule consensus_vzv:
+    input:
+        bam="work/{s}.vzv.dedup.bam",
+        ref="refs/VZV.fasta",
+        depth="results/coverage/{s}.vzv.depth.txt"
+    output:
+        vcf="work/{s}.vzv.vcf.gz",
+        mask="work/{s}.vzv.mask.bed",
+        cons="results/consensus/vzv/{s}.fa",
+        snp="results/mutations/{s}.vzv_snp_summary.tsv"
+    params:
+        min_dp=MIN_DP
+    threads: THREADS
+    shell:
+        "awk -v OFS='\\t' -v MIN={params.min_dp} '{{ if ($3<MIN) print $1, $2-1, $2 }}' {input.depth} > {output.mask} && "
+        "bcftools mpileup -Ou -f {input.ref} {input.bam} | bcftools call -mv -Oz -o {output.vcf} && bcftools index {output.vcf} && "
+        "mkdir -p results/consensus/vzv results/mutations && bcftools consensus -f {input.ref} -m {output.mask} {output.vcf} > {output.cons} && "
+        "python analysis/scripts/snp_summary.py --vcf {output.vcf} --out_tsv {output.snp}"
+
+# Fetch context and build trees
+rule fetch_context_mpox:
+    output:
+        "results/refs/mpox_context.fasta"
+    run:
+        with open("config/mpox_context.txt","w") as f:
+            for acc in cfg.get("context_acc", {}).get("mpox", []):
+                f.write(acc + "\\n")
+        shell("python analysis/scripts/fetch_genbank.py --acc config/mpox_context.txt --out_fasta {output}")
+
+rule fetch_context_vzv:
+    output:
+        "results/refs/vzv_context.fasta"
+    run:
+        with open("config/vzv_context.txt","w") as f:
+            for acc in cfg.get("context_acc", {}).get("vzv", []):
+                f.write(acc + "\\n")
+        shell("python analysis/scripts/fetch_genbank.py --acc config/vzv_context.txt --out_fasta {output}")
+
+rule align_mpox:
+    input:
+        cons=expand("results/consensus/mpox/{s}.fa", s=SAMPLES),
+        ctx="results/refs/mpox_context.fasta"
+    output:
+        "results/aln/mpox/aln.fasta"
+    shell:
+        "mkdir -p results/aln/mpox && cat {input.cons} {input.ctx} > results/aln/mpox/input.fasta && mafft --auto results/aln/mpox/input.fasta > {output}"
+
+rule align_vzv:
+    input:
+        cons=expand("results/consensus/vzv/{s}.fa", s=SAMPLES),
+        ctx="results/refs/vzv_context.fasta"
+    output:
+        "results/aln/vzv/aln.fasta"
+    shell:
+        "mkdir -p results/aln/vzv && cat {input.cons} {input.ctx} > results/aln/vzv/input.fasta && mafft --auto results/aln/vzv/input.fasta > {output}"
+
+rule iqtree_mpox:
+    input:
+        aln="results/aln/mpox/aln.fasta"
+    output:
+        tree="results/iqtree/mpox.treefile"
+    params:
+        model=MODEL,
+        bb=BOOT,
+        mf=" -m MFP" if USE_MF else ""
+    threads: 2
+    shell:
+        "mkdir -p results/iqtree && iqtree -s {input.aln} {params.mf} -m {params.model} -bb {params.bb} -nt {threads} -pre results/iqtree/mpox"
+
+rule iqtree_vzv:
+    input:
+        aln="results/aln/vzv/aln.fasta"
+    output:
+        tree="results/iqtree/vzv.treefile"
+    params:
+        model=MODEL,
+        bb=BOOT,
+        mf=" -m MFP" if USE_MF else ""
+    threads: 2
+    shell:
+        "mkdir -p results/iqtree && iqtree -s {input.aln} {params.mf} -m {params.model} -bb {params.bb} -nt {threads} -pre results/iqtree/vzv"
+
+# Optional Nextclade for MPXV if available on path
+rule nextclade_mpox:
+    input:
+        cons=expand("results/consensus/mpox/{s}.fa", s=SAMPLES)
+    output:
+        "results/mutations/mpox_nextclade.csv"
+    shell:
+        "if command -v nextclade >/dev/null 2>&1; then mkdir -p results/mutations && nextclade run --input-dataset 'https://datasets.nextstrain.org/hmpxv/latest' results/consensus/mpox/*.fa --output-csv {output}; else echo 'nextclade not found' > {output}; fi"

@@ -1,0 +1,24 @@
+pairs:
+  - sample: MPXV_2023_02
+    r1: data-private/MPXV_2023_02_R1.fastq.gz
+    r2: data-private/MPXV_2023_02_R2.fastq.gz
+
+references:
+  mpox: NC_063383.1      # MPXV_M5312_HM12_Rivers
+  vzv: NC_001348.1       # VZV reference
+
+context_acc:
+  mpox:
+    - NC_063383.1
+  vzv:
+    - NC_001348.1
+
+params:
+  threads: 4
+  min_len_contig: 300
+  min_depth_consensus: 10
+  min_qual: 20
+  use_model_finder: false
+  iqtree_model: GTR+G+I
+  bootstrap: 1000
+  blast_remote: true
