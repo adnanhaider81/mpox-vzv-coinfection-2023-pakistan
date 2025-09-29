@@ -175,8 +175,7 @@ Additional discovery outputs
 
 ## How to cite
 - Paper: Umair M, Jamal Z, Haider SA, Hakim R, Ammar M, Ali Q, Akhtar N, Ikram A, Salman M. Genomic characterization of the first mpox and varicella-zoster co-infection in Pakistan (2023) through next-generation sequencing. Journal of Medical Virology. 2023. https://doi.org/10.1002/jmv.29037
-- Software: Haider SA. Mpox and VZV coinfection Pakistan 2023 analysis. Version 1.0.0. GitHub repository. Include commit hash when available.
-
+- Software: Haider SA. Mpox and VZV coinfection Pakistan 2023 analysis. Version 3.0.0. GitHub repository.
 ## References
 - Andrews S. 2010. FastQC. Babraham Bioinformatics.
 - Bolger AM, Lohse M, Usadel B. 2014. Trimmomatic. Bioinformatics 30:2114-2120.
