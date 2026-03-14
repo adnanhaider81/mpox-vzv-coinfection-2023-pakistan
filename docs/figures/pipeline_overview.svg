@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="980" viewBox="0 0 1600 980" role="img" aria-labelledby="title desc">
+  <title id="title">Mpox and VZV coinfection workflow overview</title>
+  <desc id="desc">Publication-style summary of the Snakemake pipeline showing input processing, discovery analysis, reference-based analysis for mpox and VZV, phylogeny, and final outputs.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f4efe6"/>
+      <stop offset="55%" stop-color="#fbfaf7"/>
+      <stop offset="100%" stop-color="#eef5f4"/>
+    </linearGradient>
+    <linearGradient id="headline" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#12343b"/>
+      <stop offset="100%" stop-color="#2f6f78"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#16343a" flood-opacity="0.12"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#365a63"/>
+    </marker>
+    <style>
+      .title { font: 700 40px Georgia, 'Times New Roman', serif; fill: #102a30; }
+      .subtitle { font: 400 19px Georgia, 'Times New Roman', serif; fill: #35535a; }
+      .section { font: 700 18px Georgia, 'Times New Roman', serif; letter-spacing: 1.8px; text-transform: uppercase; fill: #27464d; }
+      .box-title { font: 700 22px Georgia, 'Times New Roman', serif; fill: #102a30; }
+      .box-body { font: 400 17px Georgia, 'Times New Roman', serif; fill: #35535a; }
+      .small { font: 400 15px Georgia, 'Times New Roman', serif; fill: #47646b; }
+      .pill { font: 700 14px Georgia, 'Times New Roman', serif; letter-spacing: 1.1px; text-transform: uppercase; fill: #ffffff; }
+      .arrow { stroke: #365a63; stroke-width: 4; fill: none; marker-end: url(#arrow); stroke-linecap: round; stroke-linejoin: round; }
+      .guide { stroke: #86a8ad; stroke-width: 2.5; fill: none; stroke-dasharray: 8 10; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="980" fill="url(#bg)"/>
+  <rect x="54" y="48" width="1492" height="884" rx="34" fill="#fffdfa" opacity="0.92" filter="url(#shadow)"/>
+
+  <text x="96" y="114" class="title">Mpox and Varicella-Zoster Coinfection Pipeline</text>
+  <text x="96" y="148" class="subtitle">Snakemake workflow integrating metagenomic discovery, virus-specific consensus generation, and phylogenetic interpretation.</text>
+  <rect x="96" y="176" width="300" height="10" rx="5" fill="url(#headline)"/>
+
+  <rect x="96" y="220" width="166" height="34" rx="17" fill="#d57a53"/>
+  <text x="179" y="242" text-anchor="middle" class="pill">Input</text>
+  <rect x="286" y="220" width="166" height="34" rx="17" fill="#3d8c88"/>
+  <text x="369" y="242" text-anchor="middle" class="pill">Discovery</text>
+  <rect x="476" y="220" width="166" height="34" rx="17" fill="#5678b5"/>
+  <text x="559" y="242" text-anchor="middle" class="pill">Reference</text>
+  <rect x="666" y="220" width="166" height="34" rx="17" fill="#2e5964"/>
+  <text x="749" y="242" text-anchor="middle" class="pill">Phylogeny</text>
+  <rect x="856" y="220" width="166" height="34" rx="17" fill="#7a5f42"/>
+  <text x="939" y="242" text-anchor="middle" class="pill">Outputs</text>
+
+  <text x="110" y="304" class="section">Input and QC</text>
+  <rect x="96" y="324" width="344" height="160" rx="26" fill="#fff3ed" stroke="#d57a53" stroke-width="3"/>
+  <text x="126" y="372" class="box-title">Paired-end metagenomic FASTQ</text>
+  <text x="126" y="406" class="box-body">Sample metadata and reference settings in config.yaml</text>
+  <text x="126" y="436" class="box-body">FastQC baseline review and Trimmomatic filtering</text>
+  <text x="126" y="466" class="small">iSeq-style paired reads feed both discovery and reference analysis branches.</text>
+
+  <text x="540" y="304" class="section">Pathogen Discovery Branch</text>
+  <rect x="526" y="324" width="450" height="262" rx="30" fill="#edf9f7" stroke="#3d8c88" stroke-width="3"/>
+  <rect x="554" y="362" width="178" height="88" rx="20" fill="#ffffff" stroke="#77b5b0" stroke-width="2.5"/>
+  <text x="578" y="400" class="box-title">SPAdes assembly</text>
+  <text x="578" y="426" class="small">Contigs and assembly QC</text>
+  <rect x="768" y="362" width="178" height="88" rx="20" fill="#ffffff" stroke="#77b5b0" stroke-width="2.5"/>
+  <text x="793" y="400" class="box-title">Kraken2 and Kaiju</text>
+  <text x="793" y="426" class="small">Taxonomic screening of reads and contigs</text>
+  <rect x="554" y="476" width="392" height="82" rx="20" fill="#ffffff" stroke="#77b5b0" stroke-width="2.5"/>
+  <text x="580" y="512" class="box-title">BLAST top-hit review and target nomination</text>
+  <text x="580" y="538" class="small">Cross-check likely MPXV and VZV contigs before targeted analysis.</text>
+
+  <text x="1024" y="304" class="section">Reference-Based Analysis</text>
+  <rect x="1010" y="324" width="492" height="404" rx="30" fill="#eef3ff" stroke="#5678b5" stroke-width="3"/>
+  <rect x="1040" y="364" width="198" height="160" rx="22" fill="#ffffff" stroke="#8ea7d7" stroke-width="2.5"/>
+  <text x="1070" y="404" class="box-title">MPXV branch</text>
+  <text x="1070" y="434" class="box-body">BWA MEM mapping</text>
+  <text x="1070" y="462" class="box-body">Duplicate-aware BAM handling</text>
+  <text x="1070" y="490" class="box-body">Depth mask and consensus FASTA</text>
+
+  <rect x="1272" y="364" width="198" height="160" rx="22" fill="#ffffff" stroke="#8ea7d7" stroke-width="2.5"/>
+  <text x="1303" y="404" class="box-title">VZV branch</text>
+  <text x="1303" y="434" class="box-body">Parallel mapping to VZV reference</text>
+  <text x="1303" y="462" class="box-body">Masked consensus generation</text>
+  <text x="1303" y="490" class="box-body">VCF-driven SNP summary</text>
+
+  <rect x="1040" y="556" width="430" height="140" rx="22" fill="#ffffff" stroke="#8ea7d7" stroke-width="2.5"/>
+  <text x="1070" y="596" class="box-title">Context and tree building</text>
+  <text x="1070" y="626" class="box-body">Local or Entrez-fetched reference/context panels</text>
+  <text x="1070" y="654" class="box-body">MAFFT alignment and IQ-TREE inference</text>
+  <text x="1070" y="682" class="small">Optional ModelFinder and MPXV clade annotation via Nextclade.</text>
+
+  <text x="110" y="632" class="section">Integrated Outputs</text>
+  <rect x="96" y="652" width="880" height="214" rx="30" fill="#fff7ee" stroke="#7a5f42" stroke-width="3"/>
+  <rect x="126" y="690" width="254" height="132" rx="20" fill="#ffffff" stroke="#ccb293" stroke-width="2.5"/>
+  <text x="154" y="728" class="box-title">Genome products</text>
+  <text x="154" y="758" class="box-body">MPXV and VZV consensus FASTA</text>
+  <text x="154" y="786" class="box-body">Per-base coverage and masked sites</text>
+
+  <rect x="408" y="690" width="254" height="132" rx="20" fill="#ffffff" stroke="#ccb293" stroke-width="2.5"/>
+  <text x="436" y="728" class="box-title">Comparative interpretation</text>
+  <text x="436" y="758" class="box-body">Contig hit tables and taxonomy summaries</text>
+  <text x="436" y="786" class="box-body">VZV SNP summary and MPXV clade context</text>
+
+  <rect x="690" y="690" width="254" height="132" rx="20" fill="#ffffff" stroke="#ccb293" stroke-width="2.5"/>
+  <text x="718" y="728" class="box-title">Publication-ready artifacts</text>
+  <text x="718" y="758" class="box-body">Phylogenetic trees for both viruses</text>
+  <text x="718" y="786" class="box-body">Tables and plots suitable for manuscript figures</text>
+
+  <path class="arrow" d="M 440 404 C 484 404, 484 404, 526 404"/>
+  <path class="arrow" d="M 440 404 C 706 404, 858 404, 1010 404"/>
+  <path class="arrow" d="M 732 406 C 748 406, 752 406, 768 406"/>
+  <path class="arrow" d="M 751 558 C 751 590, 751 612, 751 652"/>
+  <path class="arrow" d="M 1238 444 C 1254 444, 1256 444, 1272 444"/>
+  <path class="arrow" d="M 1256 524 C 1256 540, 1256 540, 1256 556"/>
+  <path class="arrow" d="M 1256 696 C 1256 742, 1094 758, 976 758"/>
+  <path class="arrow" d="M 751 866 C 751 886, 751 886, 751 904"/>
+
+  <path class="guide" d="M 1008 526 C 992 548, 982 566, 976 590"/>
+  <text x="988" y="612" class="small">Both consensus streams converge on shared alignment and tree-building steps.</text>
+
+  <text x="96" y="920" class="small">Designed for README and manuscript overview use: discovery evidence informs target choice, while virus-specific consensus and context sequences drive phylogenetic interpretation.</text>
+</svg>
