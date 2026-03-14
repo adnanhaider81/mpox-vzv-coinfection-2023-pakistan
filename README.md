@@ -6,7 +6,11 @@ The default configuration is wired to bundled synthetic example inputs so the wo
 
 ## Pipeline Overview
 
-![Publication-style overview of the mpox and VZV coinfection analysis workflow](docs/figures/pipeline_overview.svg)
+<p align="center">
+  <img src="docs/figures/pipeline_overview.svg" alt="Publication-style overview of the mpox and VZV coinfection analysis workflow" width="100%">
+</p>
+
+[Open the full-size SVG](docs/figures/pipeline_overview.svg)
 
 ## Program summary
 One end to end pipeline organized under Snakemake. It supports both metagenomic assembly driven discovery and reference based analysis, and it produces separate consensus genomes, phylogenies, and mutation reports for MPXV and VZV.
