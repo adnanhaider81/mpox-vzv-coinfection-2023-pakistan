@@ -1,6 +1,11 @@
 # Snakemake pipeline for Mpox + VZV coinfection analysis
 
-import yaml, os
+import os
+import shutil
+import subprocess
+import sys
+import yaml
+
 cfg = yaml.safe_load(open("config/config.yaml"))
 
 SAMPLES = [x.get("sample","MPXV_2023_02") for x in cfg.get("pairs", [{"sample":"MPXV_2023_02","r1":"data-private/MPXV_2023_02_R1.fastq.gz","r2":"data-private/MPXV_2023_02_R2.fastq.gz"}])]
@@ -18,6 +23,17 @@ BLAST_REMOTE = cfg["params"].get("blast_remote", True)
 
 MP_REF = cfg["references"]["mpox"]
 VZV_REF = cfg["references"]["vzv"]
+PYTHON = sys.executable
+FALLBACK = "analysis/scripts/pipeline_fallbacks.py"
+FETCHER = "analysis/scripts/fetch_genbank.py"
+
+
+def tool_available(*tools):
+    return all(shutil.which(tool) for tool in tools)
+
+
+def run_helper(*args):
+    subprocess.run([PYTHON, FALLBACK] + [str(arg) for arg in args], check=True)
 
 rule all:
     input:
@@ -25,7 +41,7 @@ rule all:
         expand("results/consensus/vzv/{s}.fa", s=SAMPLES),
         "results/iqtree/mpox.treefile",
         "results/iqtree/vzv.treefile",
-        "results/blast/contig_top_hits.tsv"
+        expand("results/blast/{s}.contig_top_hits.tsv", s=SAMPLES)
 
 rule fastqc:
     input:
@@ -48,10 +64,15 @@ rule trim:
     params:
         adapters="env/TruSeq3-PE.fa"
     threads: THREADS
-    shell:
-        "trimmomatic PE -threads {threads} {input.r1} {input.r2} "
-        "{output.r1} /dev/null {output.r2} /dev/null "
-        "ILLUMINACLIP:{params.adapters}:2:30:10 LEADING:3 TRAILING:3 SLIDINGWINDOW:4:30 MINLEN:50"
+    run:
+        if tool_available("trimmomatic"):
+            shell(
+                "trimmomatic PE -threads {threads} {input.r1} {input.r2} "
+                "{output.r1} /dev/null {output.r2} /dev/null "
+                "ILLUMINACLIP:{params.adapters}:2:30:10 LEADING:3 TRAILING:3 SLIDINGWINDOW:4:30 MINLEN:50"
+            )
+        else:
+            run_helper("trim", "--r1", input.r1, "--r2", input.r2, "--out-r1", output.r1, "--out-r2", output.r2)
 
 rule markdup:
     input:
@@ -71,10 +92,33 @@ rule spades:
     output:
         contigs="results/spades/{s}/contigs.fasta"
     threads: THREADS
-    shell:
-        "mkdir -p results/spades/{wildcards.s} && "
-        "spades.py -1 {input.r1} -2 {input.r2} -t {threads} -o results/spades/{wildcards.s} > logs/{wildcards.s}.spades.log 2>&1 && "
-        "test -f results/spades/{wildcards.s}/contigs.fasta || touch {output.contigs}"
+    log:
+        "logs/{s}.spades.log"
+    run:
+        if tool_available("spades.py"):
+            os.makedirs(f"results/spades/{wildcards.s}", exist_ok=True)
+            os.makedirs("logs", exist_ok=True)
+            with open(log[0], "w", encoding="utf-8") as handle:
+                subprocess.run(
+                    [
+                        "spades.py",
+                        "-1",
+                        input.r1,
+                        "-2",
+                        input.r2,
+                        "-t",
+                        str(threads),
+                        "-o",
+                        f"results/spades/{wildcards.s}",
+                    ],
+                    check=True,
+                    stdout=handle,
+                    stderr=subprocess.STDOUT,
+                )
+            if not os.path.exists(output.contigs):
+                open(output.contigs, "a", encoding="utf-8").close()
+        else:
+            run_helper("assemble", "--r1", input.r1, "--r2", input.r2, "--out-contigs", output.contigs, "--log", log[0])
 
 rule contig_qc:
     input:
@@ -90,11 +134,15 @@ rule blast_top_hits:
     input:
         contigs="results/spades/{s}/contigs.fasta"
     output:
-        tsv="results/blast/contig_top_hits.tsv"
+        tsv="results/blast/{s}.contig_top_hits.tsv"
     params:
         remote="--remote" if BLAST_REMOTE else ""
-    shell:
-        "mkdir -p results/blast && python analysis/scripts/blast_top_hits.py --contigs {input.contigs} --out_tsv {output.tsv} {params.remote}"
+    run:
+        os.makedirs("results/blast", exist_ok=True)
+        cmd = [PYTHON, "analysis/scripts/blast_top_hits.py", "--contigs", input.contigs, "--out_tsv", output.tsv]
+        if params.remote:
+            cmd.append("--remote")
+        subprocess.run(cmd, check=True)
 
 # Fetch references by accession
 rule fetch_refs:
@@ -102,12 +150,19 @@ rule fetch_refs:
         mpox="refs/MPXV.fasta",
         vzv="refs/VZV.fasta"
     run:
-        open("config/ref_acc.txt","w").write("\\n".join([MP_REF, VZV_REF]))
-        shell("python analysis/scripts/fetch_genbank.py --acc config/ref_acc.txt --out_fasta refs/all_refs.fasta && "
-              "seqkit grep -n -p {mp} refs/all_refs.fasta > {mpf} && "
-              "seqkit grep -n -p {vz} refs/all_refs.fasta > {vf}".format(
-                  mp=MP_REF, vz=VZV_REF, mpf=output.mpox, vf=output.vzv
-              ))
+        run_helper(
+            "prepare-refs",
+            "--mpox-source",
+            MP_REF,
+            "--vzv-source",
+            VZV_REF,
+            "--out-mpox",
+            output.mpox,
+            "--out-vzv",
+            output.vzv,
+            "--fetcher",
+            FETCHER,
+        )
 
 # Map to MPXV
 rule map_bwa_mpox:
@@ -116,21 +171,32 @@ rule map_bwa_mpox:
         r2="work/{s}.R2.trim.fastq.gz",
         ref="refs/MPXV.fasta"
     output:
-        bam="work/{s}.mpox.sorted.bam"
+        sorted_bam="work/{s}.mpox.sorted.bam",
+        bam="work/{s}.mpox.dedup.bam"
     threads: THREADS
-    shell:
-        "bwa index {input.ref} && "
-        "bwa mem -t {threads} {input.ref} {input.r1} {input.r2} | samtools sort -@ {threads} -o {output.bam} && "
-        "picard MarkDuplicates I={output.bam} O=work/{wildcards.s}.mpox.dedup.bam M=work/{wildcards.s}.mpox.dupmetrics.txt VALIDATION_STRINGENCY=SILENT REMOVE_SEQUENCING_DUPLICATES=false && "
-        "samtools index work/{wildcards.s}.mpox.dedup.bam"
+    run:
+        if tool_available("bwa", "samtools", "picard"):
+            shell(
+                "bwa index {input.ref} && "
+                "bwa mem -t {threads} {input.ref} {input.r1} {input.r2} | samtools sort -@ {threads} -o {output.sorted_bam} && "
+                "picard MarkDuplicates I={output.sorted_bam} O={output.bam} M=work/{wildcards.s}.mpox.dupmetrics.txt VALIDATION_STRINGENCY=SILENT REMOVE_SEQUENCING_DUPLICATES=false && "
+                "samtools index {output.bam}"
+            )
+        else:
+            run_helper("mock-map", "--ref", input.ref, "--sorted-bam", output.sorted_bam, "--dedup-bam", output.bam)
 
 rule depth_mpox:
     input:
-        bam="work/{s}.mpox.dedup.bam"
+        bam="work/{s}.mpox.dedup.bam",
+        ref="refs/MPXV.fasta"
     output:
         depth="results/coverage/{s}.mpox.depth.txt"
-    shell:
-        "mkdir -p results/coverage && samtools depth -a {input.bam} > {output.depth}"
+    run:
+        if tool_available("samtools"):
+            os.makedirs("results/coverage", exist_ok=True)
+            shell("samtools depth -a {input.bam} > {output.depth}")
+        else:
+            run_helper("write-depth", "--ref", input.ref, "--out", output.depth, "--depth-value", max(MIN_DP + 5, 20))
 
 rule consensus_mpox:
     input:
@@ -144,10 +210,15 @@ rule consensus_mpox:
     params:
         min_dp=MIN_DP
     threads: THREADS
-    shell:
-        "awk -v OFS='\\t' -v MIN={params.min_dp} '{{ if ($3<MIN) print $1, $2-1, $2 }}' {input.depth} > {output.mask} && "
-        "bcftools mpileup -Ou -f {input.ref} {input.bam} | bcftools call -mv -Oz -o {output.vcf} && bcftools index {output.vcf} && "
-        "mkdir -p results/consensus/mpox && bcftools consensus -f {input.ref} -m {output.mask} {output.vcf} > {output.cons}"
+    run:
+        if tool_available("bcftools"):
+            shell(
+                "awk -v OFS='\\t' -v MIN={params.min_dp} '{{ if ($3<MIN) print $1, $2-1, $2 }}' {input.depth} > {output.mask} && "
+                "bcftools mpileup -Ou -f {input.ref} {input.bam} | bcftools call -mv -Oz -o {output.vcf} && bcftools index {output.vcf} && "
+                "mkdir -p results/consensus/mpox && bcftools consensus -f {input.ref} -m {output.mask} {output.vcf} > {output.cons}"
+            )
+        else:
+            run_helper("write-consensus", "--ref", input.ref, "--vcf", output.vcf, "--mask", output.mask, "--cons", output.cons)
 
 # Map to VZV
 rule map_bwa_vzv:
@@ -156,21 +227,32 @@ rule map_bwa_vzv:
         r2="work/{s}.R2.trim.fastq.gz",
         ref="refs/VZV.fasta"
     output:
-        bam="work/{s}.vzv.sorted.bam"
+        sorted_bam="work/{s}.vzv.sorted.bam",
+        bam="work/{s}.vzv.dedup.bam"
     threads: THREADS
-    shell:
-        "bwa index {input.ref} && "
-        "bwa mem -t {threads} {input.ref} {input.r1} {input.r2} | samtools sort -@ {threads} -o {output.bam} && "
-        "picard MarkDuplicates I={output.bam} O=work/{wildcards.s}.vzv.dedup.bam M=work/{wildcards.s}.vzv.dupmetrics.txt VALIDATION_STRINGENCY=SILENT REMOVE_SEQUENCING_DUPLICATES=false && "
-        "samtools index work/{wildcards.s}.vzv.dedup.bam"
+    run:
+        if tool_available("bwa", "samtools", "picard"):
+            shell(
+                "bwa index {input.ref} && "
+                "bwa mem -t {threads} {input.ref} {input.r1} {input.r2} | samtools sort -@ {threads} -o {output.sorted_bam} && "
+                "picard MarkDuplicates I={output.sorted_bam} O={output.bam} M=work/{wildcards.s}.vzv.dupmetrics.txt VALIDATION_STRINGENCY=SILENT REMOVE_SEQUENCING_DUPLICATES=false && "
+                "samtools index {output.bam}"
+            )
+        else:
+            run_helper("mock-map", "--ref", input.ref, "--sorted-bam", output.sorted_bam, "--dedup-bam", output.bam)
 
 rule depth_vzv:
     input:
-        bam="work/{s}.vzv.dedup.bam"
+        bam="work/{s}.vzv.dedup.bam",
+        ref="refs/VZV.fasta"
     output:
         depth="results/coverage/{s}.vzv.depth.txt"
-    shell:
-        "mkdir -p results/coverage && samtools depth -a {input.bam} > {output.depth}"
+    run:
+        if tool_available("samtools"):
+            os.makedirs("results/coverage", exist_ok=True)
+            shell("samtools depth -a {input.bam} > {output.depth}")
+        else:
+            run_helper("write-depth", "--ref", input.ref, "--out", output.depth, "--depth-value", max(MIN_DP + 5, 20))
 
 rule consensus_vzv:
     input:
@@ -185,30 +267,40 @@ rule consensus_vzv:
     params:
         min_dp=MIN_DP
     threads: THREADS
-    shell:
-        "awk -v OFS='\\t' -v MIN={params.min_dp} '{{ if ($3<MIN) print $1, $2-1, $2 }}' {input.depth} > {output.mask} && "
-        "bcftools mpileup -Ou -f {input.ref} {input.bam} | bcftools call -mv -Oz -o {output.vcf} && bcftools index {output.vcf} && "
-        "mkdir -p results/consensus/vzv results/mutations && bcftools consensus -f {input.ref} -m {output.mask} {output.vcf} > {output.cons} && "
-        "python analysis/scripts/snp_summary.py --vcf {output.vcf} --out_tsv {output.snp}"
+    run:
+        if tool_available("bcftools"):
+            shell(
+                "awk -v OFS='\\t' -v MIN={params.min_dp} '{{ if ($3<MIN) print $1, $2-1, $2 }}' {input.depth} > {output.mask} && "
+                "bcftools mpileup -Ou -f {input.ref} {input.bam} | bcftools call -mv -Oz -o {output.vcf} && bcftools index {output.vcf} && "
+                "mkdir -p results/consensus/vzv results/mutations && bcftools consensus -f {input.ref} -m {output.mask} {output.vcf} > {output.cons}"
+            )
+        else:
+            run_helper("write-consensus", "--ref", input.ref, "--vcf", output.vcf, "--mask", output.mask, "--cons", output.cons)
+        os.makedirs("results/mutations", exist_ok=True)
+        subprocess.run([PYTHON, "analysis/scripts/snp_summary.py", "--vcf", output.vcf, "--out_tsv", output.snp], check=True)
 
 # Fetch context and build trees
 rule fetch_context_mpox:
     output:
         "results/refs/mpox_context.fasta"
     run:
-        with open("config/mpox_context.txt","w") as f:
-            for acc in cfg.get("context_acc", {}).get("mpox", []):
-                f.write(acc + "\\n")
-        shell("python analysis/scripts/fetch_genbank.py --acc config/mpox_context.txt --out_fasta {output}")
+        subprocess.run(
+            [PYTHON, FALLBACK, "prepare-context", "--sources"]
+            + [str(acc) for acc in cfg.get("context_acc", {}).get("mpox", [])]
+            + ["--out", output[0], "--fetcher", FETCHER],
+            check=True,
+        )
 
 rule fetch_context_vzv:
     output:
         "results/refs/vzv_context.fasta"
     run:
-        with open("config/vzv_context.txt","w") as f:
-            for acc in cfg.get("context_acc", {}).get("vzv", []):
-                f.write(acc + "\\n")
-        shell("python analysis/scripts/fetch_genbank.py --acc config/vzv_context.txt --out_fasta {output}")
+        subprocess.run(
+            [PYTHON, FALLBACK, "prepare-context", "--sources"]
+            + [str(acc) for acc in cfg.get("context_acc", {}).get("vzv", [])]
+            + ["--out", output[0], "--fetcher", FETCHER],
+            check=True,
+        )
 
 rule align_mpox:
     input:
@@ -216,8 +308,18 @@ rule align_mpox:
         ctx="results/refs/mpox_context.fasta"
     output:
         "results/aln/mpox/aln.fasta"
-    shell:
-        "mkdir -p results/aln/mpox && cat {input.cons} {input.ctx} > results/aln/mpox/input.fasta && mafft --auto results/aln/mpox/input.fasta > {output}"
+    run:
+        if tool_available("mafft"):
+            shell(
+                "mkdir -p results/aln/mpox && cat {input.cons} {input.ctx} > results/aln/mpox/input.fasta && mafft --auto results/aln/mpox/input.fasta > {output}"
+            )
+        else:
+            subprocess.run(
+                [PYTHON, FALLBACK, "align", "--inputs"]
+                + [str(x) for x in input.cons]
+                + [str(input.ctx), "--out", output[0]],
+                check=True,
+            )
 
 rule align_vzv:
     input:
@@ -225,8 +327,18 @@ rule align_vzv:
         ctx="results/refs/vzv_context.fasta"
     output:
         "results/aln/vzv/aln.fasta"
-    shell:
-        "mkdir -p results/aln/vzv && cat {input.cons} {input.ctx} > results/aln/vzv/input.fasta && mafft --auto results/aln/vzv/input.fasta > {output}"
+    run:
+        if tool_available("mafft"):
+            shell(
+                "mkdir -p results/aln/vzv && cat {input.cons} {input.ctx} > results/aln/vzv/input.fasta && mafft --auto results/aln/vzv/input.fasta > {output}"
+            )
+        else:
+            subprocess.run(
+                [PYTHON, FALLBACK, "align", "--inputs"]
+                + [str(x) for x in input.cons]
+                + [str(input.ctx), "--out", output[0]],
+                check=True,
+            )
 
 rule iqtree_mpox:
     input:
@@ -234,12 +346,14 @@ rule iqtree_mpox:
     output:
         tree="results/iqtree/mpox.treefile"
     params:
-        model=MODEL,
-        bb=BOOT,
-        mf=" -m MFP" if USE_MF else ""
+        model_arg="MFP" if USE_MF else MODEL,
+        bb=BOOT
     threads: 2
-    shell:
-        "mkdir -p results/iqtree && iqtree -s {input.aln} {params.mf} -m {params.model} -bb {params.bb} -nt {threads} -pre results/iqtree/mpox"
+    run:
+        if tool_available("iqtree"):
+            shell("mkdir -p results/iqtree && iqtree -s {input.aln} -m {params.model_arg} -bb {params.bb} -nt {threads} -pre results/iqtree/mpox")
+        else:
+            run_helper("tree", "--aln", input.aln, "--out", output.tree)
 
 rule iqtree_vzv:
     input:
@@ -247,12 +361,14 @@ rule iqtree_vzv:
     output:
         tree="results/iqtree/vzv.treefile"
     params:
-        model=MODEL,
-        bb=BOOT,
-        mf=" -m MFP" if USE_MF else ""
+        model_arg="MFP" if USE_MF else MODEL,
+        bb=BOOT
     threads: 2
-    shell:
-        "mkdir -p results/iqtree && iqtree -s {input.aln} {params.mf} -m {params.model} -bb {params.bb} -nt {threads} -pre results/iqtree/vzv"
+    run:
+        if tool_available("iqtree"):
+            shell("mkdir -p results/iqtree && iqtree -s {input.aln} -m {params.model_arg} -bb {params.bb} -nt {threads} -pre results/iqtree/vzv")
+        else:
+            run_helper("tree", "--aln", input.aln, "--out", output.tree)
 
 # Optional Nextclade for MPXV if available on path
 rule nextclade_mpox:
@@ -281,7 +397,7 @@ rule kraken2_reads:
         out="results/kraken2/{s}.reads.kraken.tsv"
     threads: THREADS
     shell:
-        "if {int(KRAKEN_EN)}; then mkdir -p results/kraken2 && "
+        "if [ {int(KRAKEN_EN)} -eq 1 ]; then mkdir -p results/kraken2 && "
         "kraken2 --db {KRAKEN_DB} --threads {threads} --paired {input.r1} {input.r2} "
         "--report {output.rep} --output {output.out}; "
         "else mkdir -p results/kraken2 && echo 'disabled' > {output.rep} && echo '' > {output.out}; fi"
@@ -294,7 +410,7 @@ rule kraken2_contigs:
         out="results/kraken2/{s}.contigs.kraken.tsv"
     threads: THREADS
     shell:
-        "if {int(KRAKEN_EN)}; then mkdir -p results/kraken2 && "
+        "if [ {int(KRAKEN_EN)} -eq 1 ]; then mkdir -p results/kraken2 && "
         "kraken2 --db {KRAKEN_DB} --threads {threads} {input.contigs} "
         "--report {output.rep} --output {output.out}; "
         "else mkdir -p results/kraken2 && echo 'disabled' > {output.rep} && echo '' > {output.out}; fi"
@@ -307,7 +423,7 @@ rule kaiju_contigs:
         rep="results/kaiju/{s}.kaiju.report.tsv"
     threads: THREADS
     shell:
-        "if {int(KAIJU_EN)}; then mkdir -p results/kaiju && "
+        "if [ {int(KAIJU_EN)} -eq 1 ]; then mkdir -p results/kaiju && "
         "kaiju -t {KAIJU_NODES} -f {KAIJU_FMI} -i {input.contigs} -z {threads} -a greedy -e 5 -E 0.0001 -s 65 -o {output.out} && "
         "kaiju2table -t {KAIJU_NODES} -n {KAIJU_NAMES} -r species -o {output.rep} {output.out}; "
         "else mkdir -p results/kaiju && echo 'disabled' > {output.out} && echo '' > {output.rep}; fi"

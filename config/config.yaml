@@ -1,17 +1,17 @@
 pairs:
   - sample: MPXV_2023_02
-    r1: data-private/MPXV_2023_02_R1.fastq.gz
-    r2: data-private/MPXV_2023_02_R2.fastq.gz
+    r1: data-example/MPXV_2023_02_R1.fastq
+    r2: data-example/MPXV_2023_02_R2.fastq
 
 references:
-  mpox: NC_063383.1      # MPXV_M5312_HM12_Rivers
-  vzv: NC_001348.1       # VZV reference
+  mpox: data-example/refs/MPXV.fasta
+  vzv: data-example/refs/VZV.fasta
 
 context_acc:
   mpox:
-    - NC_063383.1
+    - data-example/context/mpox_context.fasta
   vzv:
-    - NC_001348.1
+    - data-example/context/vzv_context.fasta
 
 params:
   threads: 4

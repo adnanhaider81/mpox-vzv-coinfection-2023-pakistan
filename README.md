@@ -2,6 +2,8 @@
 
 Reproducible code and Snakemake workflow that mirror the study design and analyses reported in the Journal of Medical Virology paper on the first mpox and varicella-zoster virus (VZV) coinfection detected in Pakistan in 2023. DOI: 10.1002/jmv.29037
 
+The default configuration is wired to bundled synthetic example inputs so the workflow can be smoke-tested from a fresh checkout. Replace those paths with your own FASTQs and preferred references for a real analysis run.
+
 ## Program summary
 One end to end pipeline organized under Snakemake. It supports both metagenomic assembly driven discovery and reference based analysis, and it produces separate consensus genomes, phylogenies, and mutation reports for MPXV and VZV.
 
@@ -118,18 +120,18 @@ Edit `config/config.yaml`. Minimal example:
 ```yaml
 pairs:
   - sample: MPXV_2023_02
-    r1: data-private/MPXV_2023_02_R1.fastq.gz
-    r2: data-private/MPXV_2023_02_R2.fastq.gz
+    r1: data-example/MPXV_2023_02_R1.fastq
+    r2: data-example/MPXV_2023_02_R2.fastq
 
 references:
-  mpox: NC_063383.1      # MPXV_M5312_HM12_Rivers
-  vzv: NC_001348.1       # VZV reference, editable
+  mpox: data-example/refs/MPXV.fasta
+  vzv: data-example/refs/VZV.fasta
 
 context_acc:
   mpox:
-    - NC_063383.1
+    - data-example/context/mpox_context.fasta
   vzv:
-    - NC_001348.1
+    - data-example/context/vzv_context.fasta
 
 params:
   threads: 4
@@ -146,7 +148,7 @@ params:
 - `results/consensus/mpox/<sample>.fa` and `results/consensus/vzv/<sample>.fa` - masked consensuses
 - `results/aln/mpox/aln.fasta` and `results/aln/vzv/aln.fasta` - MAFFT alignments with context
 - `results/iqtree/mpox.treefile` and `results/iqtree/vzv.treefile` - ML trees
-- `results/blast/contig_top_hits.tsv` - contig to best hit summary
+- `results/blast/<sample>.contig_top_hits.tsv` - contig to best hit summary
 - `results/coverage/<sample>.<virus>.depth.txt` - per base depth
 - `results/mutations/mpox_nextclade.csv` - MPXV clade and mutation list if Nextclade is available
 - `results/mutations/vzv_snp_summary.tsv` - per sample SNP summary relative to VZV reference
@@ -161,7 +163,7 @@ Additional discovery outputs
 
 ## SPAdes contigs: QC and identification
 1. Review `results/spades/<sample>/contigs.qc.tsv` and `contigs.summary.txt`. Default minimum contig length is 300 nt. N50, GC percent, and N percent are reported.
-2. Identify likely MPXV and VZV contigs with BLASTN. By default the workflow runs `blastn -remote -db nt` for the top 5 hits per contig and writes `results/blast/contig_top_hits.tsv`. Set `params.blast_remote: false` and provide a local `nt` path if you maintain a local database.
+2. Identify likely MPXV and VZV contigs with BLASTN. By default the workflow runs `blastn -remote -db nt` for the top 5 hits per contig and writes `results/blast/<sample>.contig_top_hits.tsv`. Set `params.blast_remote: false` and provide a local `nt` path if you maintain a local database.
 3. The workflow selects a best reference per virus using either BLAST hits or the provided fallback accessions in `config.yaml`. You can override by editing `config/selected_refs.yaml` after a first run.
 
 ## Closest references and phylogeny
