@@ -9,7 +9,7 @@ Published paper: Umair M, Jamal Z, Haider SA, Hakim R, Ammar M, Ali Q, Akhtar N,
 
 The default configuration is wired to bundled synthetic example inputs so the workflow can be smoke-tested from a fresh checkout. Replace those paths with your own FASTQs and preferred references for a real analysis run.
 
-## Pipeline Overview
+## Workflow overview
 
 <p align="center">
   <img src="docs/figures/pipeline_overview.svg" alt="Publication-style overview of the mpox and VZV coinfection analysis workflow" width="100%">
@@ -66,20 +66,18 @@ Authoritative sources
 - Kaiju prebuilt indexes: https://bioinformatics-centre.github.io/kaiju/downloads.html  
 - NCBI Taxonomy dump (names.dmp and nodes.dmp): https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/
 
-Quick start examples
+Database setup examples
 ```bash
-# Kraken2: download a RefSeq-based bundle from the Langmead AWS indexes page
-# Pick a tarball that matches your RAM, then untar and set kraken2.db to the extracted folder
+# Kraken2: choose a current RefSeq-based bundle from the Langmead AWS indexes page,
+# then untar it and set kraken2.db to the extracted folder.
 mkdir -p /data/db/kraken2 && cd /data/db/kraken2
-# example only - visit the page above to choose the exact URL
-curl -O https://benlangmead.github.io/aws-indexes/k2/2025-07-xx/k2_standard_202507.tar.gz
-tar -xzf k2_standard_202507.tar.gz
+# curl -O <selected Kraken2 tarball URL>
+# tar -xzf <selected Kraken2 tarball>
 
-# Kaiju: download a prebuilt index that already includes names.dmp and nodes.dmp
+# Kaiju: choose a current prebuilt index that already includes names.dmp and nodes.dmp.
 mkdir -p /data/db/kaiju && cd /data/db/kaiju
-# example only - visit the downloads page to choose the exact file
-curl -O https://kaiju.binf.ku.dk/database/kaiju_db_nr_euk_2023-05-16.tgz
-tar -xzf kaiju_db_nr_euk_2023-05-16.tgz
+# curl -O <selected Kaiju archive URL>
+# tar -xzf <selected Kaiju archive>
 
 # Or build Kaiju DB locally using kaiju-makedb
 kaiju-makedb -s refseq -t /data/db/kaiju/taxdump  # downloads taxonomy and builds the .fmi index
@@ -190,7 +188,7 @@ Additional discovery outputs
 
 ## How to cite
 - Paper: Umair M, Jamal Z, Haider SA, Hakim R, Ammar M, Ali Q, Akhtar N, Ikram A, Salman M. Genomic characterization of the first mpox and varicella-zoster co-infection in Pakistan (2023) through next-generation sequencing. Journal of Medical Virology. 2023. https://doi.org/10.1002/jmv.29037
-- Software: Haider SA. Mpox and VZV coinfection Pakistan 2023 analysis. Version 1.0.0. Zenodo. https://doi.org/10.5281/zenodo.20257751
+- Software: Haider SA. Mpox and Varicella-Zoster Coinfection Genomics Workflow, Pakistan 2023. Version 1.0.0. Zenodo. https://doi.org/10.5281/zenodo.20257751
 - All-version software DOI: https://doi.org/10.5281/zenodo.20257750
 ## References
 - Andrews S. 2010. FastQC. Babraham Bioinformatics.
