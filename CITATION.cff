@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: Please cite this code and the associated paper.
-title: Mpox and VZV coinfection Pakistan 2023 - analysis code
+title: Mpox and Varicella-Zoster Coinfection Genomics Workflow, Pakistan 2023
 authors:
   - family-names: Haider
     given-names: Syed Adnan

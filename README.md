@@ -1,9 +1,11 @@
-# Genomic characterization of the first mpox and varicella-zoster co-infection in Pakistan (2023) through next-generation sequencing
+# Mpox and Varicella-Zoster Coinfection Genomics Workflow, Pakistan 2023
 
 [![DOI](https://zenodo.org/badge/1066194540.svg)](https://zenodo.org/badge/latestdoi/1066194540)
 [![Smoke test](https://github.com/adnanhaider81/mpox-vzv-coinfection-2023-pakistan/actions/workflows/smoke-test.yml/badge.svg)](https://github.com/adnanhaider81/mpox-vzv-coinfection-2023-pakistan/actions/workflows/smoke-test.yml)
 
-Reproducible code and Snakemake workflow that mirror the study design and analyses reported in the Journal of Medical Virology paper on the first mpox and varicella-zoster virus (VZV) coinfection detected in Pakistan in 2023. DOI: 10.1002/jmv.29037
+Reproducible code and Snakemake workflow that mirror the study design and analyses reported in the Journal of Medical Virology paper on the first mpox and varicella-zoster virus (VZV) coinfection detected in Pakistan in 2023.
+
+Published paper: Umair M, Jamal Z, Haider SA, Hakim R, Ammar M, Ali Q, Akhtar N, Ikram A, Salman M. Genomic characterization of the first mpox and varicella-zoster co-infection in Pakistan (2023) through next-generation sequencing. Journal of Medical Virology. 2023. https://doi.org/10.1002/jmv.29037
 
 The default configuration is wired to bundled synthetic example inputs so the workflow can be smoke-tested from a fresh checkout. Replace those paths with your own FASTQs and preferred references for a real analysis run.
 
