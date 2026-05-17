@@ -9,6 +9,7 @@ date-released: 2026-05-17
 type: software
 abstract: "A reproducible Snakemake workflow for the 2023 Pakistan mpox and VZV coinfection analysis, including metagenomic discovery, reference-based consensus generation, separate MPXV/VZV phylogenies, mutation summaries, and bundled synthetic example inputs."
 repository-code: "https://github.com/adnanhaider81/mpox-vzv-coinfection-2023-pakistan"
+doi: "10.5281/zenodo.20257751"
 license: MIT
 preferred-citation:
   type: article

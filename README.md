@@ -1,5 +1,6 @@
 # Genomic characterization of the first mpox and varicella-zoster co-infection in Pakistan (2023) through next-generation sequencing
 
+[![DOI](https://zenodo.org/badge/1066194540.svg)](https://zenodo.org/badge/latestdoi/1066194540)
 [![Smoke test](https://github.com/adnanhaider81/mpox-vzv-coinfection-2023-pakistan/actions/workflows/smoke-test.yml/badge.svg)](https://github.com/adnanhaider81/mpox-vzv-coinfection-2023-pakistan/actions/workflows/smoke-test.yml)
 
 Reproducible code and Snakemake workflow that mirror the study design and analyses reported in the Journal of Medical Virology paper on the first mpox and varicella-zoster virus (VZV) coinfection detected in Pakistan in 2023. DOI: 10.1002/jmv.29037
@@ -187,7 +188,8 @@ Additional discovery outputs
 
 ## How to cite
 - Paper: Umair M, Jamal Z, Haider SA, Hakim R, Ammar M, Ali Q, Akhtar N, Ikram A, Salman M. Genomic characterization of the first mpox and varicella-zoster co-infection in Pakistan (2023) through next-generation sequencing. Journal of Medical Virology. 2023. https://doi.org/10.1002/jmv.29037
-- Software: Haider SA. Mpox and VZV coinfection Pakistan 2023 analysis. Version 1.0.0. GitHub repository.
+- Software: Haider SA. Mpox and VZV coinfection Pakistan 2023 analysis. Version 1.0.0. Zenodo. https://doi.org/10.5281/zenodo.20257751
+- All-version software DOI: https://doi.org/10.5281/zenodo.20257750
 ## References
 - Andrews S. 2010. FastQC. Babraham Bioinformatics.
 - Bolger AM, Lohse M, Usadel B. 2014. Trimmomatic. Bioinformatics 30:2114-2120.
