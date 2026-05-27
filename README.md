@@ -186,6 +186,10 @@ Additional discovery outputs
 - MPXV: Nextclade hMPXV dataset can be used to assign clade and list substitutions and deletions. Enable by installing `nextclade` from conda and it will run automatically if present. You can also use Nextclade Web when offline and place the CSV output under `results/mutations/`.
 - VZV: The workflow outputs a simple SNP table from the VCF. For amino acid effects you can extend with SnpEff if you add a VZV database.
 
+## Data governance
+
+See [DATA_GOVERNANCE.md](DATA_GOVERNANCE.md) for public-data, restricted-data, and sample-identifier handling rules.
+
 ## How to cite
 - Paper: Umair M, Jamal Z, Haider SA, Hakim R, Ammar M, Ali Q, Akhtar N, Ikram A, Salman M. Genomic characterization of the first mpox and varicella-zoster co-infection in Pakistan (2023) through next-generation sequencing. Journal of Medical Virology. 2023. https://doi.org/10.1002/jmv.29037
 - Software: Haider SA. Mpox and Varicella-Zoster Coinfection Genomics Workflow, Pakistan 2023. Version 1.0.0. Zenodo. https://doi.org/10.5281/zenodo.20257751
