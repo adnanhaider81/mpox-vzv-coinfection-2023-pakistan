@@ -186,6 +186,16 @@ Additional discovery outputs
 - MPXV: Nextclade hMPXV dataset can be used to assign clade and list substitutions and deletions. Enable by installing `nextclade` from conda and it will run automatically if present. You can also use Nextclade Web when offline and place the CSV output under `results/mutations/`.
 - VZV: The workflow outputs a simple SNP table from the VCF. For amino acid effects you can extend with SnpEff if you add a VZV database.
 
+## Apptainer/Singularity container
+
+An HPC-friendly container recipe is provided at `containers/Apptainer.def`. Build it from the repository root:
+
+```bash
+apptainer build containers/mpox-vzv-coinfection-2023-pakistan.sif containers/Apptainer.def
+```
+
+Use the image on systems where Apptainer or Singularity is preferred over Docker.
+
 ## Data governance
 
 See [DATA_GOVERNANCE.md](DATA_GOVERNANCE.md) for public-data, restricted-data, and sample-identifier handling rules.
