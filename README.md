@@ -9,6 +9,20 @@ Published paper: Umair M, Jamal Z, Haider SA, Hakim R, Ammar M, Ali Q, Akhtar N,
 
 The default configuration is wired to bundled synthetic example inputs so the workflow can be smoke-tested from a fresh checkout. Replace those paths with your own FASTQs and preferred references for a real analysis run.
 
+## Abbreviations
+
+| Term | Meaning |
+| --- | --- |
+| MPXV | Mpox virus |
+| VZV | Varicella-zoster virus |
+| SNP | Single-nucleotide polymorphism |
+| VCF | Variant Call Format |
+| SPAdes | Genome assembler used for contig generation |
+| BLAST | Basic Local Alignment Search Tool |
+| BWA | Burrows-Wheeler Aligner for read mapping |
+| ML | Maximum likelihood |
+| QC | Quality control |
+
 ## Workflow overview
 
 <p align="center">
