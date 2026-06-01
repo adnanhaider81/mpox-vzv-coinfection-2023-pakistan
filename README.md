@@ -188,7 +188,7 @@ Additional discovery outputs
 
 ## Apptainer/Singularity container
 
-An HPC-friendly container recipe is provided at `containers/Apptainer.def`. Build it from the repository root:
+HPC-friendly Apptainer/Singularity support is available at `containers/Apptainer.def`. Build it from the repository root:
 
 ```bash
 apptainer build containers/mpox-vzv-coinfection-2023-pakistan.sif containers/Apptainer.def
